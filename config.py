@@ -1,0 +1,1 @@
+CSV_PATH = './data/AirBNB.csv'
