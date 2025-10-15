@@ -1,6 +1,7 @@
 import pandas as pd
 
-def print_summary(df):
+
+def print_df_summary(df):
     pd.set_option('display.max_columns', None)  # show all columns
     pd.set_option('display.max_rows', None)  # show all rows (optional)
     pd.set_option('display.width', None)  # let pandas decide based on your console
@@ -12,7 +13,7 @@ def print_summary(df):
     print('Column data type\n', df.dtypes, '\n--------------------')
 
 
-def print_frequency(df, key, sort):
+def print_df_frequency(df, key, sort):
     if sort == 'descending':
         print(f'Frequency: Highest first ({key})\n', df[key].value_counts(), '\n --------------------')
     elif sort == 'ascending':
@@ -30,5 +31,5 @@ def query_df_by_condition(df, condition):
     return df.query(condition)
 
 
-def create_subset_df(df, keys):
+def create_df_subset(df, keys):
     return df[keys]
