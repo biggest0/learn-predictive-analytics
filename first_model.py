@@ -10,10 +10,13 @@ from sklearn.linear_model import LogisticRegression
 from file_handler import get_dataframe_with_features, get_csv_dataframe
 from constant import TOP_FEATURES, MAYBE_FEATURES
 from impute import convertNAcellsToNum
+from create_dummy import create_dummy
 
 
 def ols():
     df = get_csv_dataframe()
+    # df = create_dummy(df, 'cancellation_policy')
+    print(df.head(10))
     # imputing missing data with mean of column
     df = convertNAcellsToNum('bathrooms', df, "mean")
     df = convertNAcellsToNum('bedrooms', df, "mean")
