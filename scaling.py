@@ -1,273 +1,157 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split, KFold
-from sklearn.linear_model import LinearRegression
-from sklearn import metrics
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, precision_score, f1_score, roc_auc_score, \
-    recall_score, accuracy_score, confusion_matrix
-import statsmodels.api as sm
-import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler, RobustScaler
+"""
+Examples of cross-validation and scaling techniques.
+Uses modular functions from across the codebase.
+"""
 
-from file_handler import get_dataframe_with_features, get_csv_dataframe
-from constant import TOP_FEATURES, MAYBE_FEATURES
-from impute import convertNAcellsToNum
-from create_dummy import create_dummy
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+
+# Import from existing modules
+from util.file_handler import get_csv_dataframe
+from feature_creation.impute import convertNAcellsToNum
+from feature_creation.dummy import create_dummy
+from feature_interpretation.k_fold import run_kfold
+from models.scaling import scaling_OLS, scale_and_train_ols
 
 def k_fold_example():
-    # pd.set_option('display.max_columns', None)   # show all columns
-    # pd.set_option('display.max_rows', None)      # show all rows (optional)
-    # pd.set_option('display.width', None)         # let pandas decide based on your console
-    # pd.set_option('display.expand_frame_repr', False)  # don't wrap to multiple lines
-    # pd.read_csv(CSV_PATH, header = 0)
+    """
+    Example of k-fold cross validation for regression using modular functions.
+    """
     df = get_csv_dataframe()
-    # df = create_dummy(df, 'cancellation_policy')
     df = convertNAcellsToNum('bathrooms', df, "mean")
     df = convertNAcellsToNum('bedrooms', df, "mean")
     df = convertNAcellsToNum('beds', df, "mean")
-    features = ['accommodates', 'imp_bedrooms', 'imp_bathrooms', 'imp_beds', 'indoor_fireplace', 'tv', 'dryer']
 
+    features = ['accommodates', 'imp_bedrooms', 'imp_bathrooms', 'imp_beds', 'indoor_fireplace', 'tv', 'dryer']
     X = df[features]
     X = sm.add_constant(X)
     y = df['price']
 
-    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0) # if not doing k fold use this
+    # Use the modular k-fold function with comprehensive metrics
+    print("Performing k-fold cross validation with comprehensive metrics...")
+    results = run_kfold(X, y, n_splits=5, random_state=0, verbose=True, include_additional_metrics=True)
 
-    k_fold = KFold(n_splits=5, shuffle=True, random_state=0)
-    accuracy_list = []
-    fold_count = 0
-    r2_list, rmse_list, adjr2_list, fstat_list, f_pval_list, aic_list, bic_list = ([] for _ in range(7))
-
-    for train_index, test_index in k_fold.split(X):
-        fold_count += 1
-        # get all rows with train indexes
-        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        # Fit the OLS model
-        model = sm.OLS(y_train, X_train).fit()
-
-        # Predict on the test fold
-        y_pred = model.predict(X_test)
-
-        # Calculate R^2 score as "accuracy" for regression
-        # r2 = r2_score(y_test, y_pred)
-        # accuracy_list.append(r2)
-
-        # Compute RMSE
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-
-        # Store OLS summary stats
-        r2_list.append(model.rsquared)
-        adjr2_list.append(model.rsquared_adj)
-        fstat_list.append(model.fvalue)
-        f_pval_list.append(model.f_pvalue)
-        aic_list.append(model.aic)
-        bic_list.append(model.bic)
-        rmse_list.append(rmse)
-
-        # print(model.summary())
-        print(f"Fold {fold_count}: R²={model.rsquared:.4f}, RMSE={rmse:.2f}, Adj R²_adj={model.rsquared_adj:.4f}, F={model.fvalue:.2f}")
-
-    # print(f'\nAverage R² across all folds: {sum(accuracy_list) / len(accuracy_list):.4f}')
-    print("\n===== Cross-Validation Averages =====")
-    print(f"Average R²:       {np.mean(r2_list):.4f}")
-    print(f"Average Adj R²:   {np.mean(adjr2_list):.4f}")
-    print(f"Average RMSE:     {np.mean(rmse_list):.4f}")
-    print(f"Average F-Stat:   {np.mean(fstat_list):.4f}")
-    print(f"Average F p-val:  {np.mean(f_pval_list):.4e}")
-    print(f"Average AIC:      {np.mean(aic_list):.4f}")
-    print(f"Average BIC:      {np.mean(bic_list):.4f}")
+    print("\n===== Cross-Validation Summary =====")
+    print(f"Average R²:     {results['mean_r2']:.4f}")
+    print(f"Average Adj R²: {results['mean_adj_r2']:.4f}")
+    print(f"Average RMSE:   {results['mean_rmse']:.4f}")
+    print(f"Average AIC:    {results['mean_aic']:.4f}")
+    print(f"Average BIC:    {results['mean_bic']:.4f}")
 
 # k_fold_example()
 
 
 def k_fold_logistic():
+    """
+    Example of k-fold cross validation for logistic regression.
+    Note: This uses a simplified approach since the main run_kfold function is designed for OLS.
+    """
+    from sklearn.model_selection import KFold
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
+
     df = get_csv_dataframe()
-    # df = create_dummy(df, 'cancellation_policy')
     df = convertNAcellsToNum('bathrooms', df, "mean")
     df = convertNAcellsToNum('bedrooms', df, "mean")
     df = convertNAcellsToNum('beds', df, "mean")
+
     features = ['accommodates', 'imp_bedrooms', 'imp_bathrooms', 'imp_beds', 'indoor_fireplace', 'tv', 'dryer']
-
     X = df[features]
-    y = df['some_binary_col']
+    y = df['price'] > df['price'].median()  # Create binary target for demonstration
 
-    k_fold = KFold(n_splits=3, shuffle=True)
-    accuracyList = []
-    foldCount = 0
+    k_fold = KFold(n_splits=3, shuffle=True, random_state=42)
+    accuracy_list = []
+    fold_count = 0
 
     for train_index, test_index in k_fold.split(X):
-        foldCount += 1
-        # get all rows with train indexes
+        fold_count += 1
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-        # Recommended to only fit on training data.
-        # Scaling only needed for X since y ranges between 0 and 1.
-        scalerX = StandardScaler()
-        X_train_scaled = scalerX.fit_transform(X_train)  # Fit and transform.
-        X_test_scaled = scalerX.transform(X_test)  # Transform only.
+        # Scale features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
 
-        # Perform logistic regression, fit model (train)
-        logisticModel = LogisticRegression(fit_intercept=True, solver='liblinear')
-        logisticModel.fit(X_train_scaled, y_train)
+        # Train logistic regression
+        model = LogisticRegression(fit_intercept=True, solver='liblinear')
+        model.fit(X_train_scaled, y_train)
 
-        y_pred = logisticModel.predict(X_test_scaled)
-        y_prob = logisticModel.predict_proba(X_test_scaled)
-        # Show confusion matrix and accuracy scores.
-        y_test_array = np.array(y_test['Purchased'])
-        cm = pd.crosstab(y_test_array, y_pred, rownames=['Actual'], colnames=['Predicted'])
-        tn, fp, fn, tp = cm.ravel()
+        # Predict and evaluate
+        y_pred = model.predict(X_test_scaled)
+        y_prob = model.predict_proba(X_test_scaled)
 
         accuracy = metrics.accuracy_score(y_test, y_pred)
         precision = precision_score(y_test, y_pred)
-        rec = recall_score(y_test, y_pred) #recall
+        recall = recall_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_prob[:, 1], )
+        auc = roc_auc_score(y_test, y_prob[:, 1])
 
-        accuracyList.append(accuracy)
+        accuracy_list.append(accuracy)
+        print(f"Fold {fold_count}: Accuracy={accuracy:.4f}, Precision={precision:.4f}, "
+              f"Recall={recall:.4f}, F1={f1:.4f}, AUC={auc:.4f}")
+
+    print(f"\nAverage Accuracy across {fold_count} folds: {np.mean(accuracy_list):.4f}")
 
 
-def scaling_OLS():
+def demo_scaling_ols():
+    """
+    Demo of scaling functionality using modular functions.
+    """
+    print("Running OLS with scaling demo...")
+    scaling_OLS()
+
+
+def demo_scaling_logistic():
+    """
+    Demo of logistic regression with scaling using modular functions.
+    """
+    from models.scaling import scaling_logistic
+    print("Running logistic regression with scaling demo...")
+    scaling_logistic()
+
+
+def demo_advanced_scaling():
+    """
+    Demo of advanced scaling techniques using the modular scaling functions.
+    """
     import pandas as pd
-    import numpy as np
     from sklearn import datasets
     from sklearn.model_selection import train_test_split
-    import statsmodels.api as sm
-    import numpy as np
-    from sklearn import metrics
 
+    # Load wine dataset
     wine = datasets.load_wine()
     dataset = pd.DataFrame(
-        data=np.c_[wine['data'], wine['target']],
+        data=pd.c_[wine['data'], wine['target']],
         columns=wine['feature_names'] + ['target']
     )
 
-    # Create copy to prevent overwrite.
+    # Prepare data
     X = dataset.copy()
-    del X['target']  # Remove target variable
-    del X['hue']  # Remove unwanted features
-    del X['ash']
-    del X['magnesium']
-    del X['malic_acid']
-    del X['alcohol']
-
+    X = X.drop(['target', 'hue', 'ash', 'magnesium', 'malic_acid', 'alcohol'], axis=1)
     y = dataset['target']
 
-    # Adding an intercept *** This is requried ***. Don't forget this step.
-    X = sm.add_constant(X)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    from sklearn.preprocessing import RobustScaler
-
-    sc_x = RobustScaler()
-    X_train_scaled = sc_x.fit_transform(X_train)
-
-    # Create y scaler. Only scale y_train since evaluation
-    # will use the actual size y_test.
-    sc_y = RobustScaler()
-    y_train_scaled = sc_y.fit_transform(np.array(y_train).reshape(-1, 1))
-
-    # Save the fitted scalers.
-    from pickle import dump, load
-
-    dump(sc_x, open('sc_x.pkl', 'wb'))
-    dump(sc_y, open('sc_y.pkl', 'wb'))
-
-    # Build model with training data.
-    model = sm.OLS(y_train_scaled, X_train_scaled).fit()
-
-    # Save model
-    dump(model, open('ols_model.pkl', 'wb'))
-
-    # Load model
-    loaded_model = load(open('ols_model.pkl', 'rb'))
-
-    # Load the scalers.
-    loaded_scalerX = load(open('sc_x.pkl', 'rb'))
-    loaded_scalery = load(open('sc_y.pkl', 'rb'))
-
-    X_test_scaled = loaded_scalerX.transform(X_test)
-    scaledPredictions = loaded_model.predict(X_test_scaled)  # make predictions
-
-    # Rescale predictions back to actual size range.
-    predictions = loaded_scalery.inverse_transform(
-        np.array(scaledPredictions).reshape(-1, 1))
-
-    print(loaded_model.summary())
-    print('Root Mean Squared Error:',
-          np.sqrt(metrics.mean_squared_error(y_test, predictions)))
-
-scaling_OLS()
-
-def test():
-    wine = datasets.load_wine()
-    dataset = pd.DataFrame(
-        data=np.c_[wine['data'], wine['target']],
-        columns=wine['feature_names'] + ['target']
+    print("Training OLS model with Robust scaling...")
+    model, predictions, rmse = scale_and_train_ols(
+        X_train, y_train, X_test, y_test,
+        scaler_type='robust',
+        save_scalers=True
     )
 
-    # Create copy to prevent overwrite.
-    X = dataset.copy()
-    del X['target']  # Remove target variable
-    del X['hue']  # Remove unwanted features
-    del X['ash']
-    del X['magnesium']
-    del X['malic_acid']
-    del X['alcohol']
+    print(f"Model trained successfully. RMSE: {rmse:.4f}")
 
-    y = dataset['target']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-    scaler_x = RobustScaler()
-    scaler_y = RobustScaler()
-    # 1. SCALE
-    X_train_scaled = scaler_x.fit_transform(X_train)  # Learn & scale training
-    y_train_scaled = scaler_y.fit_transform(y_train)  # Learn & scale training y
-    # Don't scale y_test - keep it original
-
-    # 2. TRAIN & PREDICT
-    model = sm.OLS(y_train_scaled, X_train_scaled).fit()
-    scaledPredictions = model.predict(X_test)  # Predictions are in scaled units
-
-    # 3. RESCALE & COMPARE
-    predictions = scaler_y.inverse_transform(scaledPredictions)  # Back to original units
-    rmse = np.sqrt(metrics.mean_squared_error(y_test, predictions))  # Compare original vs original
-
-    dump(sc_x, open('sc_x.pkl', 'wb'))
-    dump(sc_y, open('sc_y.pkl', 'wb'))
-    dump(model, open('ols_model.pkl', 'wb'))     # Save model
-    loaded_model = load(open('ols_model.pkl', 'rb'))     # Load model
-    loaded_scalerX = load(open('sc_x.pkl', 'rb'))     # Load the scalers.
-    loaded_scalery = load(open('sc_y.pkl', 'rb'))
-    X_test_scaled = loaded_scalerX.transform(X_test)
-    scaledPredictions = loaded_model.predict(X_test_scaled)  # make predictions
-
-def scaling_logistic():
-    # --- Example dataset ---
-    df = pd.DataFrame({
-        'income': [25, 30, 35, 40, 100, 120, 150, 200],
-        'age': [20, 25, 30, 35, 40, 45, 50, 55],
-        'bought': [0, 0, 0, 1, 1, 1, 1, 1]
-    })
-
-    # Features and target
-    X = df[['income', 'age']]
-    y = df['bought']
-
-    # --- 1. Scale features ---
-    scaler = RobustScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # --- 2. Split data ---
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.25, random_state=0)
-
-    # --- 3. Train logistic regression ---
-    model = LogisticRegression(solver='liblinear', random_state=0)
-    model.fit(X_train, y_train)
-
-    # --- 4. Predict and evaluate ---
-    y_pred = model.predict(X_test)
-
-    print('Accuracy:', accuracy_score(y_test, y_pred))
-    print('Confusion matrix:\n', confusion_matrix(y_test, y_pred))
+    # Demo loading and predicting with saved scalers
+    from models.scaling import load_scalers_and_predict
+    print("\nTesting scaler loading and prediction...")
+    predictions_loaded = load_scalers_and_predict(
+        X_test[:5],  # Test on first 5 samples
+        model_path='ols_model.pkl',
+        scaler_x_path='scaler_X.pkl',
+        scaler_y_path='scaler_y.pkl'
+    )
+    print(f"Loaded model predictions: {predictions_loaded.flatten()[:5]}")

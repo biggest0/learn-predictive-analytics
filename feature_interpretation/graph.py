@@ -400,5 +400,227 @@ def main():
     # draw_heatmap(MAYBE_FEATURES)
 
 
+def plot_scatter_vs_target(df, features, target='price', figsize=(15, 5), alpha=0.6,
+                          edgecolor='k', grid=True, show_plot=True):
+    """
+    Create scatter plots showing relationship between features and target variable.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe
+        features (list): List of feature column names to plot
+        target (str): Target column name (default='price')
+        figsize (tuple): Figure size (width, height)
+        alpha (float): Transparency level for points (0-1)
+        edgecolor (str): Edge color for points
+        grid (bool): Whether to show grid lines
+        show_plot (bool): Whether to display the plot immediately
+
+    Returns:
+        tuple: (fig, axes) - matplotlib figure and axes objects
+    """
+    if not features:
+        raise ValueError("features list cannot be empty")
+
+    fig, axes = plt.subplots(1, len(features), figsize=figsize)
+
+    # Handle single feature case (axes is not an array)
+    if len(features) == 1:
+        axes = [axes]
+
+    for i, feature in enumerate(features):
+        if feature not in df.columns:
+            raise ValueError(f"Feature '{feature}' not found in dataframe")
+        if target not in df.columns:
+            raise ValueError(f"Target '{target}' not found in dataframe")
+
+        axes[i].scatter(df[feature], df[target], alpha=alpha, edgecolor=edgecolor)
+        axes[i].set_title(f'{feature.replace("_", " ").title()} vs {target.title()}')
+        axes[i].set_xlabel(feature.replace("_", " ").title())
+        axes[i].set_ylabel(target.title())
+        if grid:
+            axes[i].grid(True, linestyle='--', alpha=0.5)
+
+    plt.tight_layout()
+
+    if show_plot:
+        plt.show()
+
+    return fig, axes
+
+
+def plot_scatter_batch(df, target='price', batch_size=5, batch_index=0, **kwargs):
+    """
+    Plot scatter plots for a batch of features vs target.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe
+        target (str): Target column name
+        batch_size (int): Number of features to plot per batch
+        batch_index (int): Which batch to plot (0-based index)
+        **kwargs: Additional arguments passed to plot_scatter_vs_target
+
+    Returns:
+        tuple: (fig, axes) - matplotlib figure and axes objects
+    """
+    # Get numeric features excluding target
+    numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    if target in numeric_cols:
+        numeric_cols.remove(target)
+
+    # Calculate batch indices
+    start_idx = batch_index * batch_size
+    end_idx = start_idx + batch_size
+    features = numeric_cols[start_idx:end_idx]
+
+    if not features:
+        print(f"No features found for batch {batch_index}")
+        return None, None
+
+    print(f"Plotting features: {features}")
+    return plot_scatter_vs_target(df, features, target=target, **kwargs)
+
+
+def plot_correlation_heatmap(df, features, target='price', figsize=None, cmap="RdYlBu",
+                           annot=True, fmt=".2f", show_plot=True):
+    """
+    Create a correlation heatmap showing feature relationships with target.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe
+        features (list): List of feature column names
+        target (str): Target column name
+        figsize (tuple): Figure size (auto-calculated if None)
+        cmap (str): Colormap for heatmap
+        annot (bool): Whether to show correlation values
+        fmt (str): Format string for annotations
+        show_plot (bool): Whether to display the plot immediately
+
+    Returns:
+        tuple: (fig, ax) - matplotlib figure and axes objects
+    """
+    if not features:
+        raise ValueError("features list cannot be empty")
+
+    # Select relevant columns
+    selected_cols = features + [target]
+    missing_cols = [col for col in selected_cols if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Columns not found in dataframe: {missing_cols}")
+
+    # Compute correlation matrix
+    corr = df[selected_cols].corr()
+
+    # Extract correlation with target and sort by absolute value
+    corr_target = corr[[target]].copy()
+    corr_target = corr_target.reindex(
+        corr_target[target].abs().sort_values(ascending=False).index
+    )
+
+    # Auto-calculate figure size if not provided
+    if figsize is None:
+        height = max(6, len(features) * 0.4 + 1)
+        figsize = (8, height)
+
+    # Create plot
+    fig, ax = plt.subplots(figsize=figsize)
+
+    sns.heatmap(
+        corr_target,
+        annot=annot,
+        cmap=cmap,
+        linewidths=0.5,
+        vmin=-1, vmax=1,
+        cbar=True,
+        fmt=fmt,
+        annot_kws={"size": 10, "color": "black"},
+        ax=ax
+    )
+
+    ax.set_title(f'Feature Correlation with {target.title()}', fontsize=14)
+    ax.set_xlabel('Correlation', fontsize=12)
+    ax.set_ylabel('Features', fontsize=12)
+
+    plt.tight_layout()
+
+    if show_plot:
+        plt.show()
+
+    return fig, ax
+
+
+def plot_correlation_heatmap_batch(df, target='price', batch_size=10, batch_index=0, **kwargs):
+    """
+    Plot correlation heatmap for a batch of features.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe
+        target (str): Target column name
+        batch_size (int): Number of features per batch
+        batch_index (int): Which batch to plot (0-based index)
+        **kwargs: Additional arguments passed to plot_correlation_heatmap
+
+    Returns:
+        tuple: (fig, ax) - matplotlib figure and axes objects
+    """
+    # Get numeric features excluding target
+    numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    if target in numeric_cols:
+        numeric_cols.remove(target)
+
+    # Calculate batch indices
+    start_idx = batch_index * batch_size
+    end_idx = start_idx + batch_size
+    features = numeric_cols[start_idx:end_idx]
+
+    if not features:
+        print(f"No features found for batch {batch_index}")
+        return None, None
+
+    print(f"Plotting correlations for features: {features}")
+    return plot_correlation_heatmap(df, features, target=target, **kwargs)
+
+
+def plot_feature_importance(corr_series, title="Feature Importance", figsize=(10, 8),
+                           color='skyblue', show_plot=True):
+    """
+    Plot feature importance based on correlation values.
+
+    Parameters:
+        corr_series (pd.Series): Series with feature names as index and correlation as values
+        title (str): Plot title
+        figsize (tuple): Figure size
+        color (str): Bar color
+        show_plot (bool): Whether to display the plot immediately
+
+    Returns:
+        tuple: (fig, ax) - matplotlib figure and axes objects
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Sort by absolute correlation
+    sorted_corr = corr_series.abs().sort_values(ascending=True)
+
+    bars = ax.barh(sorted_corr.index, sorted_corr.values, color=color, alpha=0.7)
+
+    # Add correlation values on bars
+    for i, (bar, abs_value) in enumerate(zip(bars, sorted_corr.values)):
+        feature_name = sorted_corr.index[i]
+        original_value = corr_series[feature_name]  # Get original signed value
+        ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2,
+                '.2f', ha='left', va='center', fontsize=10)
+
+    ax.set_title(title, fontsize=14)
+    ax.set_xlabel('Absolute Correlation', fontsize=12)
+    ax.set_ylabel('Features', fontsize=12)
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    plt.tight_layout()
+
+    if show_plot:
+        plt.show()
+
+    return fig, ax
+
+
 if __name__ == '__main__':
     main()
