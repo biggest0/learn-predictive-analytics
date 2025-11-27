@@ -4,11 +4,13 @@ from sklearn import metrics
 from sklearn.impute import KNNImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
+from imblearn.over_sampling import SMOTE
 
 from feature_interpretation.feature_selection import chi_square_feature_selection, \
     logistic_recursive_feature_elimination, anova_feature_selection, mutual_information_selection, \
     random_forest_importance, ensemble_feature_selection
-from linear_regression.test.constants import CATEGORICAL_COLS_TO_DUMMY, COLS_TO_BIN, TOP_20_FEATURES
+from linear_regression.test.constants import CATEGORICAL_COLS_TO_DUMMY, COLS_TO_BIN, TOP_20_FEATURES, RFE_FEATURES, \
+    CHI_FEATURES, ANOVA_FEATURES, MUTUAL_FEATURES, RANDOM_FOREST_FEATURES, ENSEMBLE_FEATURES, RFE_CHI_UNION
 
 PATH_TO_CREDIT_CSV = 'Credit_Train.csv'
 PATH_TO_FULL_CLEANED_CSV = 'full_cleaned_data.csv'
@@ -152,6 +154,7 @@ def save_model_results_txt(file_name, y_test, y_pred):
 def save_k_fold_txt(summary, features):
     file_name = np.mean(summary['accuracy'])
 
+    print(f'../data/models/k_fold_{file_name:.4f}.txt')
     with open(f'../data/models/k_fold_{file_name:.4f}.txt', 'w') as f:
         # Write metrics
         f.write("=== Metrics ===\n")
@@ -166,55 +169,136 @@ def save_k_fold_txt(summary, features):
 
 
 def k_fold(X, y, NUM_SPLITS=5):
-    cv = KFold(n_splits=NUM_SPLITS, shuffle=True)
+
     metrics_summary = {
         "accuracy": [],
         "precision": [],
         "recall": [],
         "f1": [],
     }
+    for _ in range(50):
+        cv = KFold(n_splits=NUM_SPLITS, shuffle=True)
+        for n, (train_indices, test_indicies) in enumerate(cv.split(X), start=1):
+            X_train, X_test = X.iloc[train_indices], X.iloc[test_indicies]
+            y_train, y_test = y.iloc[train_indices], y.iloc[test_indicies]
 
-    for n, (train_indices, test_indicies) in enumerate(cv.split(X), start=1):
-        X_train, X_test = X.iloc[train_indices], X.iloc[test_indicies]
-        y_train, y_test = y.iloc[train_indices], y.iloc[test_indicies]
+            # Fit logistic regression model
+            model = LogisticRegression(fit_intercept=True, solver='liblinear')
+            model.fit(X_train, y_train)
 
-        # Fit logistic regression model
-        model = LogisticRegression(fit_intercept=True, solver='liblinear', random_state=0)
-        model.fit(X_train, y_train)
+            # Predict
+            y_pred = model.predict(X_test)
 
-        # Predict
-        y_pred = model.predict(X_test)
+            # Calculate scores
+            accuracy = metrics.accuracy_score(y_test, y_pred)
+            precision = metrics.precision_score(y_test, y_pred)
+            recall = metrics.recall_score(y_test, y_pred)
+            f1 = metrics.f1_score(y_test, y_pred)
 
-        # Calculate scores
-        accuracy = metrics.accuracy_score(y_test, y_pred)
-        precision = metrics.precision_score(y_test, y_pred)
-        recall = metrics.recall_score(y_test, y_pred)
-        f1 = metrics.f1_score(y_test, y_pred)
+            # Store scores
+            metrics_summary["accuracy"].append(accuracy)
+            metrics_summary["precision"].append(precision)
+            metrics_summary["recall"].append(recall)
+            metrics_summary["f1"].append(f1)
 
-        # Store scores
-        metrics_summary["accuracy"].append(accuracy)
-        metrics_summary["precision"].append(precision)
-        metrics_summary["recall"].append(recall)
-        metrics_summary["f1"].append(f1)
-
-        print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
-              f"recall: {recall:.4f} | f1: {f1:.4f}")
-
-    for metric, values in metrics_summary.items():
-        mean_value = np.mean(values)
-        print(f"{metric}: Mean = {mean_value:.4f}")
+    #     print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
+    #           f"recall: {recall:.4f} | f1: {f1:.4f}")
+    #
+    # for metric, values in metrics_summary.items():
+    #     mean_value = np.mean(values)
+    #     print(f"{metric}: Mean = {mean_value:.4f}")
 
     return metrics_summary
 
 
-df = get_csv_dataframe(PATH_TO_FULL_CLEANED_CSV)
+def k_fold_smote(X, y, NUM_SPLITS=5):
 
-X = df[TOP_20_FEATURES]
-y = df['class']
+    metrics_summary = {
+        "accuracy": [],
+        "precision": [],
+        "recall": [],
+        "f1": [],
+    }
+    for _ in range(50):
+        cv = KFold(n_splits=NUM_SPLITS, shuffle=True)
+        for n, (train_indices, test_indicies) in enumerate(cv.split(X), start=1):
+            X_train, X_test = X.iloc[train_indices], X.iloc[test_indicies]
+            y_train, y_test = y.iloc[train_indices], y.iloc[test_indicies]
 
-summary = k_fold(X, y, 10)
+            # Apply SMOTE only to training data
+            smt = SMOTE()
+            X_train_SMOTE, y_train_SMOTE = smt.fit_resample(X_train, y_train)
 
-save_k_fold_txt(summary, TOP_20_FEATURES)
+            # Fit logistic regression model
+            model = LogisticRegression(fit_intercept=True, solver='liblinear')
+            # model.fit(X_train, y_train) # no smote
+            model.fit(X_train_SMOTE, y_train_SMOTE)  # with smote
+
+            # Predict
+            y_pred = model.predict(X_test)
+
+            # Calculate scores
+            accuracy = metrics.accuracy_score(y_test, y_pred)
+            precision = metrics.precision_score(y_test, y_pred)
+            recall = metrics.recall_score(y_test, y_pred)
+            f1 = metrics.f1_score(y_test, y_pred)
+
+            # Store scores
+            metrics_summary["accuracy"].append(accuracy)
+            metrics_summary["precision"].append(precision)
+            metrics_summary["recall"].append(recall)
+            metrics_summary["f1"].append(f1)
+
+    #     print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
+    #           f"recall: {recall:.4f} | f1: {f1:.4f}")
+    #
+    # for metric, values in metrics_summary.items():
+    #     mean_value = np.mean(values)
+    #     print(f"{metric}: Mean = {mean_value:.4f}")
+
+    return metrics_summary
+
+
+def train_with_logistic_regression(features=TOP_20_FEATURES):
+    df = get_csv_dataframe(PATH_TO_FULL_CLEANED_CSV)
+
+    X = df[features]
+    y = df['class']
+
+    summary = k_fold(X, y, 5)
+
+    save_k_fold_txt(summary, features)
+
+# feature_sets = [RFE_FEATURES, CHI_FEATURES, ANOVA_FEATURES, MUTUAL_FEATURES, RANDOM_FOREST_FEATURES, ENSEMBLE_FEATURES, RFE_CHI_UNION]
+feature_sets = CHI_FEATURES + ANOVA_FEATURES + MUTUAL_FEATURES + RANDOM_FOREST_FEATURES + ENSEMBLE_FEATURES + RFE_CHI_UNION
+
+
+# for features in feature_sets:
+#     train_with_logistic_regression(features)
+
+# for feature in ENSEMBLE_FEATURES:
+#     if feature not in RFE_FEATURES:
+#         test_features = RFE_FEATURES
+#         test_features.pop()
+#         test_features.append(feature)
+#         print(feature.capitalize())
+#         for _ in range(5):
+#             train_with_logistic_regression(test_features)
+
+features = ENSEMBLE_FEATURES
+for _ in range(5):
+    train_with_logistic_regression(features)
+# features_to_add = CHI_FEATURES
+# count = 10
+# while count > 0:
+#     feature = features_to_add.pop(0)
+#     if feature not in features:
+#         count -= 1
+#         print(feature)
+#         features.append(feature)
+#         for _ in range(5):
+#             train_with_logistic_regression(features)
+
 
 # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42)
 #
