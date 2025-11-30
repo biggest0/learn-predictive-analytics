@@ -3,14 +3,18 @@ import pandas as pd
 from sklearn import metrics
 from sklearn.impute import KNNImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, train_test_split
 from imblearn.over_sampling import SMOTE
+from datetime import datetime
+import pickle
+from itertools import combinations
 
 from feature_interpretation.feature_selection import chi_square_feature_selection, \
     logistic_recursive_feature_elimination, anova_feature_selection, mutual_information_selection, \
-    random_forest_importance, ensemble_feature_selection
+    random_forest_importance, ensemble_feature_selection, logistic_forward_feature_selection
 from linear_regression.test.constants import CATEGORICAL_COLS_TO_DUMMY, COLS_TO_BIN, TOP_20_FEATURES, RFE_FEATURES, \
-    CHI_FEATURES, ANOVA_FEATURES, MUTUAL_FEATURES, RANDOM_FOREST_FEATURES, ENSEMBLE_FEATURES, RFE_CHI_UNION
+    CHI_FEATURES, ANOVA_FEATURES, MUTUAL_FEATURES, RANDOM_FOREST_FEATURES, ENSEMBLE_FEATURES, RFE_CHI_UNION, RFE, CHI, \
+    FFS, NEW_BEST_20_FEATURES, SELECTED_FEATURES
 
 PATH_TO_CREDIT_CSV = 'Credit_Train.csv'
 PATH_TO_FULL_CLEANED_CSV = 'full_cleaned_data.csv'
@@ -70,7 +74,7 @@ def create_dummy_cols(df, col_name):
 
 
 # Binning
-def create_bin_cols(df, col_name, bins, drop_original=False):
+def create_bin_cols(df, col_name, bins, drop_original=True):
     # Bin the df column
     binned = pd.cut(df[col_name], bins=bins, include_lowest=True)
 
@@ -104,6 +108,7 @@ def clean_dataframe():
 def feature_selection():
     df = get_csv_dataframe(PATH_TO_NUMERIC_CLEANED_CSV)
 
+    ffs_features = logistic_forward_feature_selection(df)
     rfe_features = set(logistic_recursive_feature_elimination(df))
     chi_features = set(chi_square_feature_selection(df))
     anova_features = anova_feature_selection(df)
@@ -129,6 +134,9 @@ def feature_selection():
     print('chi')
     print(chi_features, '\n')
 
+    print('ffs')
+    print(ffs_features, '\n')
+
 
 def save_model_results_txt(file_name, y_test, y_pred):
     with open(f'../data/models/{file_name}.txt', 'w') as f:
@@ -152,20 +160,27 @@ def save_model_results_txt(file_name, y_test, y_pred):
 
 
 def save_k_fold_txt(summary, features):
-    file_name = np.mean(summary['accuracy'])
+    file_name = np.mean(summary['f1'])
 
-    print(f'../data/models/k_fold_{file_name:.4f}.txt')
-    with open(f'../data/models/k_fold_{file_name:.4f}.txt', 'w') as f:
+    print(f'../data/text/k_fold_{file_name:.4f}.txt')
+    with open(f'../data/text/k_fold_{file_name:.4f}.txt', 'w') as f:
         # Write metrics
         f.write("=== Metrics ===\n")
         for metric, values in summary.items():
             mean_value = np.mean(values)
+            sd_value = np.std(values)
             f.write(f"{metric}: Mean = {mean_value:.4f}\n")
+            f.write(f"{metric}: SD = {sd_value:.4f}\n")
         f.write("\n\n")
 
         # Write top 20 features
-        f.write("=== Top 20 Features ===\n")
+        f.write(f"=== Top {len(features)} Features ===\n")
         f.write('\n'.join(features))
+
+
+def save_model(model, f1):
+    with open(f"../data/models/model_{f1:.4f}.pkl", "wb") as f:
+        pickle.dump(model, f)
 
 
 def k_fold(X, y, NUM_SPLITS=5):
@@ -176,7 +191,7 @@ def k_fold(X, y, NUM_SPLITS=5):
         "recall": [],
         "f1": [],
     }
-    for _ in range(50):
+    for _ in range(100):
         cv = KFold(n_splits=NUM_SPLITS, shuffle=True)
         for n, (train_indices, test_indicies) in enumerate(cv.split(X), start=1):
             X_train, X_test = X.iloc[train_indices], X.iloc[test_indicies]
@@ -201,12 +216,12 @@ def k_fold(X, y, NUM_SPLITS=5):
             metrics_summary["recall"].append(recall)
             metrics_summary["f1"].append(f1)
 
-    #     print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
-    #           f"recall: {recall:.4f} | f1: {f1:.4f}")
+            # print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
+            #       f"recall: {recall:.4f} | f1: {f1:.4f}")
     #
-    # for metric, values in metrics_summary.items():
-    #     mean_value = np.mean(values)
-    #     print(f"{metric}: Mean = {mean_value:.4f}")
+    for metric, values in metrics_summary.items():
+        mean_value = np.mean(values)
+        print(f"{metric}: Mean = {mean_value:.4f}")
 
     return metrics_summary
 
@@ -259,18 +274,115 @@ def k_fold_smote(X, y, NUM_SPLITS=5):
     return metrics_summary
 
 
-def train_with_logistic_regression(features=TOP_20_FEATURES):
-    df = get_csv_dataframe(PATH_TO_FULL_CLEANED_CSV)
-
-    X = df[features]
-    y = df['class']
+def train_with_logistic_regression(X, y, features=TOP_20_FEATURES):
 
     summary = k_fold(X, y, 5)
+    # summary = k_fold_smote(X, y, 5)
 
     save_k_fold_txt(summary, features)
+    return summary
+
+
+def train_final_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15, random_state=42)
+
+    logistic_model = LogisticRegression(fit_intercept=True, solver='liblinear')
+    # logistic_model.fit(X_train, y_train)
+    logistic_model.fit(X, y)
+
+    return logistic_model
+
+
+def prepare_data(selected_features=TOP_20_FEATURES):
+    df = get_csv_dataframe(PATH_TO_FULL_CLEANED_CSV)
+
+    X = df[selected_features]
+    y = df['class']
+
+    return X, y
+
+
+
+def main(features):
+    X, y = prepare_data(features)
+    summary = train_with_logistic_regression(X, y, features)
+    model = train_final_model(X, y)
+
+    f1_average = np.mean(summary['f1'])
+    save_model(model, f1_average)
+
 
 # feature_sets = [RFE_FEATURES, CHI_FEATURES, ANOVA_FEATURES, MUTUAL_FEATURES, RANDOM_FOREST_FEATURES, ENSEMBLE_FEATURES, RFE_CHI_UNION]
-feature_sets = CHI_FEATURES + ANOVA_FEATURES + MUTUAL_FEATURES + RANDOM_FOREST_FEATURES + ENSEMBLE_FEATURES + RFE_CHI_UNION
+# feature_sets = CHI_FEATURES + ANOVA_FEATURES + MUTUAL_FEATURES + RANDOM_FOREST_FEATURES + ENSEMBLE_FEATURES + RFE_CHI_UNION
+# test_default_features = ['duration', 'credit_amount', 'installment_commitment', 'residence_since', 'age', 'existing_credits', 'num_dependents']
+# main(test_default_features)
+
+def features_test():
+    df = get_csv_dataframe(PATH_TO_FULL_CLEANED_CSV)
+    y = df['class']
+
+    features_to_use = RFE_FEATURES
+    # features_to_add = list(set(CHI_FEATURES) - set(RFE_FEATURES))
+    features_to_add = list(set(MUTUAL_FEATURES) - set(features_to_use))
+    n = len(features_to_add)
+
+    top_ten_models = {}
+    count = 0
+
+    combination_of_features = []
+    for r in range(1, n + 1):
+        combination_of_features.extend(combinations(features_to_add, r))
+
+    for combination in combination_of_features:
+        count += 1
+
+        m = len(combination)
+        features = features_to_use.copy()
+        features = features[:len(features) - m] + list(combination)
+
+        X = df[features]
+
+        summary = k_fold(X, y)
+        model = train_final_model(X, y)
+        f1_average = round(np.mean(summary['f1']), 4)
+
+        model_object = {
+            'summary': summary,
+            'model': model,
+            'features': features,
+        }
+
+        if len(top_ten_models) < 10:
+            top_ten_models[f1_average] = model_object
+        else:
+            lowest_f1 = min(top_ten_models.keys())
+
+            if f1_average > lowest_f1:  # use >= to allow ties
+                top_ten_models.pop(lowest_f1)
+                top_ten_models[f1_average] = model_object
+
+
+    for k, v in top_ten_models.items():
+        save_k_fold_txt(v['summary'], v['features'])
+        save_model(v['model'], k)
+
+    print(sorted(list(top_ten_models.keys()))[::-1])
+    print(count)
+
+# features_test()
+
+
+
+main(RFE)
+main(CHI)
+main(FFS)
+main(NEW_BEST_20_FEATURES)
+main(SELECTED_FEATURES)
+
+
+
+
+
 
 
 # for features in feature_sets:
@@ -285,9 +397,9 @@ feature_sets = CHI_FEATURES + ANOVA_FEATURES + MUTUAL_FEATURES + RANDOM_FOREST_F
 #         for _ in range(5):
 #             train_with_logistic_regression(test_features)
 
-features = ENSEMBLE_FEATURES
-for _ in range(5):
-    train_with_logistic_regression(features)
+# features = RFE_FEATURES
+# for _ in range(5):
+#     train_with_logistic_regression(features)
 # features_to_add = CHI_FEATURES
 # count = 10
 # while count > 0:
