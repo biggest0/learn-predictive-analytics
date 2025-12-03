@@ -138,7 +138,7 @@ def draw_heatmap(df, features):
     Draws a correlation heatmap showing how each feature relates to the target variable 'price'.
     Negative correlations appear red; positive appear blue.
     """
-    target = 'price'
+    target = 'class'
 
     # Select relevant columns
     selected_cols = features + [target]
@@ -149,22 +149,23 @@ def draw_heatmap(df, features):
     # Extract correlation with the target
     corr_target = corr[[target]]
 
-    # Sort by absolute correlation values
-    corr_target = corr_target.reindex(
-        corr_target[target].abs().sort_values(ascending=False).index
-    )
+    # Sort by correlation values from 1 to -1 (descending)
+    corr_target = corr_target.sort_values(by=target, ascending=False)
 
     # Plot heatmap
-    plt.figure(figsize=(6, len(features) * 0.4 + 1))
+    fig, ax = plt.subplots(figsize=(6, len(features) * 0.4 + 1))
     sns.heatmap(
         corr_target,
         annot=True,
         cmap="RdYlBu",          # 🔥 Diverging color map (red = negative, blue = positive)
         linewidths=0.5,
         vmin=-1, vmax=1,
+        center=0,  # <-- Forces diverging scale around zero
         cbar=True,
+        cbar_kws={"shrink": 1.0, "aspect": 30},  # aspect controls width/height ratio
         fmt=".2f",
-        annot_kws={"size": 10, "color": "black"}
+        annot_kws={"size": 10, "color": "black"},
+        ax=ax
     )
 
     plt.title(f'Correlation with {target.capitalize()}', fontsize=14)
@@ -276,7 +277,7 @@ def _draw_box_plot(df, target='price', features=None, ncols=2, figsize=(15, 6)):
         plt.show()
 
 
-def draw_hist_plots(df, target='price', features=None, ncols=3, figsize=(15, 6)):
+def draw_hist_plots(df, target='class', features=None, ncols=3, figsize=(15, 6)):
     """
     Draws histograms for numeric features to visualize their relationship with the target.
 
@@ -303,11 +304,12 @@ def draw_hist_plots(df, target='price', features=None, ncols=3, figsize=(15, 6))
             data=df,
             x=feature,
             hue=target,
-            kde=True,
-            palette='viridis',
+            kde=False,
+            multiple="dodge",
+            palette={1: "#9fd195", 0: "#d65f5f"},
             ax=axes[i]
         )
-        axes[i].set_title(f'{feature} vs {target}')
+        axes[i].set_title(f'{target} distribution by {feature}')
         axes[i].grid(True, linestyle='--', alpha=0.5)
 
     # Hide any unused subplots
@@ -343,7 +345,6 @@ def double_hist(df, col1='bathrooms', col2='beds'):
     plt.tight_layout()
     plt.show()
 
-from assignment1 import train
 
 def get_csv_dataframe(path='cleaned_AirBNB_data.csv'):
     pd.set_option('display.max_columns', None)   # show all columns
