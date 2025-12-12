@@ -215,6 +215,7 @@ def k_fold(X, y, NUM_SPLITS=5):
             metrics_summary["precision"].append(precision)
             metrics_summary["recall"].append(recall)
             metrics_summary["f1"].append(f1)
+            print(f1)
 
             # print(f"Fold {n} | accuracy: {accuracy:.4f} | precision: {precision:.4f} | "
             #       f"recall: {recall:.4f} | f1: {f1:.4f}")
@@ -373,15 +374,24 @@ def features_test():
 
 
 
-main(RFE)
-main(CHI)
-main(FFS)
-main(NEW_BEST_20_FEATURES)
-main(SELECTED_FEATURES)
+# main(RFE)
+# main(CHI)
+# main(FFS)
+# main(NEW_BEST_20_FEATURES)
+# main(SELECTED_FEATURES + ['employment_<1', 'property_magnitude_no known property', 'duration_(-0.001, 12.0]', 'purpose_radio/tv', 'savings_status_no known savings'])
+#
 
 
-
-
+# df = get_csv_dataframe(PATH_TO_CREDIT_CSV)
+#
+# # Number of rows
+# num_rows = df.shape[0]
+#
+# # Number of columns
+# num_cols = df.shape[1]
+#
+# print(f'Rows: {num_rows}')
+# print(f'Columns: {num_cols}')
 
 
 
