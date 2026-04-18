@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import BaggingClassifier, RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, precision_score, recall_score, f1_score
 
 # -----------------------------------------------------------------------------
 # 1. LOAD & SPLIT DATA
@@ -163,6 +163,11 @@ bag_clf = BaggingClassifier(
 )
 bag_clf.fit(X_train, y_train)
 
-bag_acc = accuracy_score(y_test, bag_clf.predict(X_test))
+bag_preds2 = bag_clf.predict(X_test)
+bag_acc = accuracy_score(y_test, bag_preds2)
 oob_acc = bag_clf.oob_score_             # ~= cross-val score, no extra split needed
 print(f"BaggingClassifier accuracy: {bag_acc:.4f}  |  OOB score: {oob_acc:.4f}")
+print(f"Precision (macro): {precision_score(y_test, bag_preds2, average='macro'):.4f}")
+print(f"Recall    (macro): {recall_score(y_test, bag_preds2, average='macro'):.4f}")
+print(f"F1        (macro): {f1_score(y_test, bag_preds2, average='macro'):.4f}")
+print(classification_report(y_test, bag_preds2, target_names=data.target_names))
