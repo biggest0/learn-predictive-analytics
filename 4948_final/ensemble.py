@@ -53,7 +53,7 @@ for clf in classifiers:
 # -----------------------------------------------------------------------------
 # 4. ENSEMBLE VOTE CLASSIFIER
 # -----------------------------------------------------------------------------
-eclf = EnsembleVoteClassifier(clfs=[ada_boost, grad_boost, xgb_boost], voting='hard')
+eclf = EnsembleVoteClassifier(clfs=[ada_boost, grad_boost, xgb_boost], voting='hard', weights=[1, 1, 1])
 # hard = majority of model votes win
 # soft = average the votes to get confidence in each class 0/1, higher one wins
 eclf.fit(X_train, y_train)
