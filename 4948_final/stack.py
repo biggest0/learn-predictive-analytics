@@ -15,6 +15,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier, ExtraTreesClassifier
+import torch
+import torch.nn as nn
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
 # -----------------------------------------------------------------------------
@@ -38,6 +40,48 @@ X_val   = scaler.transform(X_val)
 X_test  = scaler.transform(X_test)
 
 # -----------------------------------------------------------------------------
+# 3a. PYTORCH ANN — wrapped with fit() / predict() to match sklearn API
+# -----------------------------------------------------------------------------
+class ANN(nn.Module):
+    def __init__(self, input_size, num_classes):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_size, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, num_classes),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class ANNClassifier:
+    def __init__(self, input_size, num_classes, epochs=100, lr=0.01):
+        self.model      = ANN(input_size, num_classes)
+        self.epochs     = epochs
+        self.lr         = lr
+        self.num_classes = num_classes
+
+    def fit(self, X, y):
+        X_t = torch.tensor(X, dtype=torch.float32)
+        y_t = torch.tensor(y, dtype=torch.long)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        criterion = nn.CrossEntropyLoss()
+        self.model.train()
+        for _ in range(self.epochs):
+            optimizer.zero_grad()
+            loss = criterion(self.model(X_t), y_t)
+            loss.backward()
+            optimizer.step()
+
+    def predict(self, X):
+        self.model.eval()
+        with torch.no_grad():
+            X_t = torch.tensor(X, dtype=torch.float32)
+            return self.model(X_t).argmax(dim=1).numpy()
+
+# -----------------------------------------------------------------------------
 # 3. DEFINE & FIT BASE MODELS ON TRAIN SET
 # -----------------------------------------------------------------------------
 base_models = [
@@ -46,6 +90,7 @@ base_models = [
     AdaBoostClassifier(random_state=42),
     RandomForestClassifier(n_estimators=100, random_state=42),
     ExtraTreesClassifier(n_estimators=100, random_state=42),
+    ANNClassifier(input_size=X_train.shape[1], num_classes=len(np.unique(y))),
 ]
 
 for model in base_models:
