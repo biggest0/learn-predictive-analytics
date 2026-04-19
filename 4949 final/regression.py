@@ -87,6 +87,58 @@ plt.tight_layout()
 plt.show()
 
 # -----------------------------------------------------------------------------
+# 7. MULTIVARIATE LAG FEATURES (multiple input columns)
+#    Same idea — shift each column separately, rename so you know which lag
+#    e.g. temperature prediction with rain, humidity, wind as extra features
+# -----------------------------------------------------------------------------
+# Simulate a multivariate dataset (swap with your real CSV)
+np.random.seed(42)
+multi = pd.DataFrame({
+    'temperature': df.values,
+    'humidity':    np.random.uniform(40, 90, len(df)),
+    'wind':        np.random.uniform(0, 30, len(df)),
+    'rain':        np.random.uniform(0, 10, len(df)),
+})
+
+multi_data = pd.DataFrame()
+multi_data['y'] = multi['temperature']   # target
+
+# Create lag features for every column
+for column in multi.columns: # all the original columns, times shifted 1,2,3 days
+    multi_data[column + '_lag_1'] = multi[column].shift(1)
+    multi_data[column + '_lag_2'] = multi[column].shift(2)
+    multi_data[column + '_lag_3'] = multi[column].shift(3)
+
+multi_data = multi_data.dropna() # drop first 3 rows that has NaN due to shifting
+print("\nMultivariate lag feature columns:\n", multi_data.columns.tolist())
+
+X_multi = multi_data.drop(columns=['y'])
+y_multi = multi_data['y']
+
+# create test and train split
+X_multi_train = X_multi[0:len(X_multi) - TEST_STEPS]
+X_multi_test  = X_multi[len(X_multi) - TEST_STEPS:]
+y_multi_train = y_multi[0:len(y_multi) - TEST_STEPS]
+y_multi_test  = y_multi[len(y_multi) - TEST_STEPS:]
+
+lr_multi = LinearRegression()
+lr_multi.fit(X_multi_train, y_multi_train)
+lr_multi_preds = lr_multi.predict(X_multi_test)
+
+rmse = sqrt(mean_squared_error(y_multi_test, lr_multi_preds))
+print('Multivariate Linear Regression RMSE: %.3f' % rmse)
+
+# Predict next day — use last known row of each column as lag_1, etc.
+next_row = {}
+for column in multi.columns:
+    next_row[column + '_lag_1'] = [multi[column].iloc[-1]] # past 1 day, kept in list since its df standard
+    next_row[column + '_lag_2'] = [multi[column].iloc[-2]] # past 2 day
+    next_row[column + '_lag_3'] = [multi[column].iloc[-3]] # past 3 day
+
+next_day_multi = pd.DataFrame(next_row) # makes 1 row of data to use as input for prediction
+print('Multivariate predicted next day: %.3f' % lr_multi.predict(next_day_multi)[0]) # predict first row
+
+# -----------------------------------------------------------------------------
 # KEY CONCEPTS (exam reminders)
 # -----------------------------------------------------------------------------
 # Lag feature    : past value used as a predictor — shift(n) creates lag of n steps
