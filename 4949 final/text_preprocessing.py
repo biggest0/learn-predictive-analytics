@@ -32,7 +32,9 @@ def clean(text):
     text = re.sub(r'[^a-z\s]', '', text)   # remove punctuation/numbers
     return text
 
-cleaned = [clean(t) for t in corpus]
+cleaned = []
+for sentence in corpus:
+    cleaned.append(clean(sentence))
 print("Cleaned:\n", cleaned)
 
 # -----------------------------------------------------------------------------
@@ -40,7 +42,9 @@ print("Cleaned:\n", cleaned)
 #    word_tokenize  : splits into individual words
 #    sent_tokenize  : splits into sentences
 # -----------------------------------------------------------------------------
-tokens = [word_tokenize(t) for t in cleaned]
+tokens = []
+for sentence in cleaned:
+    tokens.append(word_tokenize(sentence))
 print("\nWord Tokens:\n", tokens[0])
 
 sentences = sent_tokenize(corpus[1])
@@ -51,7 +55,14 @@ print("\nSentence Tokens:\n", sentences)
 #    Remove common words (the, is, a, ...) that carry little meaning
 # -----------------------------------------------------------------------------
 stop_words = set(stopwords.words('english'))
-filtered = [[w for w in t if w not in stop_words] for t in tokens]
+
+filtered = []
+for token_list in tokens:
+    filtered_sentence = []
+    for word in token_list:
+        if word not in stop_words:
+            filtered_sentence.append(word)
+    filtered.append(filtered_sentence)
 print("\nAfter Stopword Removal:\n", filtered[0])
 
 # -----------------------------------------------------------------------------
@@ -59,33 +70,39 @@ print("\nAfter Stopword Removal:\n", filtered[0])
 #    running → run  |  studies → studi
 # -----------------------------------------------------------------------------
 stemmer = PorterStemmer()
-stemmed = [[stemmer.stem(w) for w in t] for t in filtered]
+
+stemmed = []
+for token_list in filtered:
+    stemmed_sentence = []
+    for word in token_list:
+        stemmed_sentence.append(stemmer.stem(word))
+    stemmed.append(stemmed_sentence)
 print("\nStemmed:\n", stemmed[0])
 
 # -----------------------------------------------------------------------------
-# 6. N-GRAMS  (sequences of n consecutive words)
+# 5. N-GRAMS  (sequences of n consecutive words)
 #    Bigram (n=2) : ("quick", "brown"), ("brown", "fox") ...
 #    Trigram (n=3): ("quick", "brown", "fox") ...
 # -----------------------------------------------------------------------------
 bigrams  = list(ngrams(filtered[0], 2))
 trigrams = list(ngrams(filtered[0], 3))
+# ngrams_top_80 = Counter(ngrams(filtered[0], n_gram_size)).most_common(80)
 print("\nBigrams:\n",  bigrams)
 print("\nTrigrams:\n", trigrams)
 
 # -----------------------------------------------------------------------------
-# 7. BAG OF WORDS  (CountVectorizer)
+# 6. BAG OF WORDS  (CountVectorizer)
 #    Counts how many times each word appears per document
 # -----------------------------------------------------------------------------
-cv = CountVectorizer()
+cv  = CountVectorizer()
 bow = cv.fit_transform(corpus)
 print("\nBag of Words (vocab):\n", cv.get_feature_names_out())
 print(pd.DataFrame(bow.toarray(), columns=cv.get_feature_names_out()))
 
 # With n-grams via CountVectorizer
-cv_ngram = CountVectorizer(ngram_range=(1, 2))   # unigrams + bigrams
+cv_ngram  = CountVectorizer(ngram_range=(1, 2))   # unigrams + bigrams
 bow_ngram = cv_ngram.fit_transform(corpus)
 print("\nBoW with Bigrams (vocab):\n", cv_ngram.get_feature_names_out())
-
 
 # -----------------------------------------------------------------------------
 # KEY CONCEPTS (exam reminders)
