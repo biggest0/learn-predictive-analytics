@@ -7,9 +7,9 @@ import warnings
 warnings.filterwarnings("ignore")
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, accuracy_score, classification_report
 from math import sqrt
 import matplotlib.pyplot as plt
 plt.rcParams.update({'figure.figsize': (9, 7), 'figure.dpi': 120})
@@ -137,6 +137,42 @@ for column in multi.columns:
 
 next_day_multi = pd.DataFrame(next_row) # makes 1 row of data to use as input for prediction
 print('Multivariate predicted next day: %.3f' % lr_multi.predict(next_day_multi)[0]) # predict first row
+
+# -----------------------------------------------------------------------------
+# 8. LOGISTIC REGRESSION WITH LAG FEATURES
+#    Same structure — only difference is target is binary (0 or 1)
+#    and metrics are accuracy/classification_report instead of RMSE
+# -----------------------------------------------------------------------------
+# Create binary target: 1 if value went UP vs previous day, 0 if down
+log_data = pd.DataFrame()
+log_data['y']     = (df.diff(1) > 0).astype(int)   # 1 = up, 0 = down
+log_data['lag_1'] = df.shift(1)
+log_data['lag_2'] = df.shift(2)
+log_data['lag_3'] = df.shift(3)
+
+log_data = log_data.dropna()
+
+X_log = log_data[['lag_1', 'lag_2', 'lag_3']]
+y_log = log_data['y']
+
+X_log_train = X_log[0:len(X_log) - TEST_STEPS]
+X_log_test  = X_log[len(X_log) - TEST_STEPS:]
+y_log_train = y_log[0:len(y_log) - TEST_STEPS]
+y_log_test  = y_log[len(y_log) - TEST_STEPS:]
+
+log_model = LogisticRegression()
+log_model.fit(X_log_train, y_log_train)
+log_preds = log_model.predict(X_log_test)
+
+print('\nLogistic Regression Accuracy: %.3f' % accuracy_score(y_log_test, log_preds))
+print(classification_report(y_log_test, log_preds, target_names=['Down', 'Up']))
+
+# Predict next day direction
+next_day_log = pd.DataFrame({'lag_1': [df.iloc[-1]],
+                              'lag_2': [df.iloc[-2]],
+                              'lag_3': [df.iloc[-3]]})
+next_direction = log_model.predict(next_day_log)
+print('Predicted next day direction: %s' % ('Up' if next_direction[0] == 1 else 'Down'))
 
 # -----------------------------------------------------------------------------
 # KEY CONCEPTS (exam reminders)
