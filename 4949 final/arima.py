@@ -1,3 +1,4 @@
+"""fits the model once on all training data, then forecasts n steps into the future (beyond the known data). Those predictions have no ground truth to compare against yet."""
 # =============================================================================
 # ARIMA CHEATSHEET  —  ARIMA(p, d, q)
 #   p = AR order  (lags of y, from PACF)
