@@ -39,6 +39,7 @@ result_diff1 = adfuller(diff1.dropna()) # remove NaN, or adfuller will break
 print('\nAfter 1st-Order Differencing:')
 print('ADF Statistic: %f' % result_diff1[0]) # ADF statistics, more negative means stationary -4 and smaller
 print('p-value: %f' % result_diff1[1]) # p-value
+print('Critical Values:', result_diff1[4])
 
 diff1.plot()
 plt.title("1st-Order Differenced")
@@ -53,6 +54,7 @@ result_diff2 = adfuller(diff2.dropna())
 print('\nAfter 2nd-Order Differencing:')
 print('ADF Statistic: %f' % result_diff2[0])
 print('p-value: %f' % result_diff2[1])
+print('Critical Values:', result_diff2[4])
 
 # -----------------------------------------------------------------------------
 # 5. ACF / PACF PLOTS  (help identify AR and MA terms for ARIMA)
@@ -71,3 +73,30 @@ plt.show()
 # ACF plot       : identifies MA(q) order — cuts off after lag q
 # PACF plot      : identifies AR(p) order — cuts off after lag p
 # d in ARIMA(p,d,q) : number of differences needed for stationarity
+
+
+# Add this to Cheatsheet
+df = pd.read_csv(
+    "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv",
+    header=0).squeeze()
+
+df.plot()
+plt.title("Original Series")
+plt.show()
+
+result = adfuller(df.dropna())
+print('ADF Statistic: %f' % result[0])
+print('p-value: %f' % result[1])
+
+diff1 = df.diff(1) # 1 means lag1, 2 would mean subtract 2 steps back
+# diff2 = df.diff(1).diff(1) # do 2 rounds of differencing
+
+result_diff1 = adfuller(diff1.dropna()) # remove NaN, or adfuller will break
+print('\nAfter 1st-Order Differencing:')
+print('ADF Statistic: %f' % result_diff1[0]) # ADF statistics, more negative means stationary -4 and smaller
+print('p-value: %f' % result_diff1[1]) # p-value
+print('Critical Values:', result_diff1[4]) # compare with 5% for 95 CI, if smaller means stationary else diff
+
+diff1.plot()
+plt.title("1st-Order Differenced")
+plt.show()
