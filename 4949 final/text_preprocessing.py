@@ -86,7 +86,7 @@ print("\nStemmed:\n", stemmed[0])
 # -----------------------------------------------------------------------------
 bigrams  = list(ngrams(filtered[0], 2))
 trigrams = list(ngrams(filtered[0], 3))
-# ngrams_top_80 = Counter(ngrams(filtered[0], n_gram_size)).most_common(80)
+# ngrams_top_80 = Counter(ngrams(filtered[0], n_gram_size)).most_common(80) # find top 80 recurring words
 print("\nBigrams:\n",  bigrams)
 print("\nTrigrams:\n", trigrams)
 
@@ -103,6 +103,14 @@ print(pd.DataFrame(bow.toarray(), columns=cv.get_feature_names_out()))
 cv_ngram  = CountVectorizer(ngram_range=(1, 2))   # unigrams + bigrams
 bow_ngram = cv_ngram.fit_transform(corpus)
 print("\nBoW with Bigrams (vocab):\n", cv_ngram.get_feature_names_out())
+
+# Binary BoW — 1 if word present, 0 if not (ignores frequency)
+stemmed_joined = [' '.join(token_list) for token_list in stemmed]  # rejoin tokens into strings
+cv_binary = CountVectorizer(binary=True)
+cv_binary.fit(stemmed_joined)
+X = cv_binary.transform(stemmed_joined)
+print("\nNumber vector size: ", str(X))
+print("Encoded list: \n" + str(X.toarray()))
 
 # -----------------------------------------------------------------------------
 # KEY CONCEPTS (exam reminders)
