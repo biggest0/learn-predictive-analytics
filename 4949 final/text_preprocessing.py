@@ -94,11 +94,6 @@ print("\nTrigrams:\n", trigrams)
 # 6. BAG OF WORDS  (CountVectorizer)
 #    Counts how many times each word appears per document
 # -----------------------------------------------------------------------------
-cv  = CountVectorizer()
-bow = cv.fit_transform(corpus)
-print("\nBag of Words (vocab):\n", cv.get_feature_names_out())
-print(pd.DataFrame(bow.toarray(), columns=cv.get_feature_names_out()))
-
 # With n-grams via CountVectorizer
 cv_ngram  = CountVectorizer(ngram_range=(1, 2))   # unigrams + bigrams
 bow_ngram = cv_ngram.fit_transform(corpus)
