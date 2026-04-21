@@ -141,10 +141,10 @@ print(classifier("The movie was absolutely wonderful!"))
 #    Identifies PERSON, ORG, LOCATION, etc. in text
 # -----------------------------------------------------------------------------
 ner = pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
-entities = ner("Pat McGee teaches at BCIT in Vancouver.")
+entities = ner("Steve studies at BCIT in Vancouver.")
 for e in entities:
     print(e["entity_group"], ":", e["word"])
-# → PER: Pat McGee  |  ORG: BCIT  |  LOC: Vancouver
+# → PER: Steve  |  ORG: BCIT  |  LOC: Vancouver
 
 # -----------------------------------------------------------------------------
 # 9. QUESTION ANSWERING PIPELINE

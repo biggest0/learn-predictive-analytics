@@ -19,7 +19,11 @@ pd.set_option('display.max_rows', None)
 # 1. LOAD & SPLIT DATA
 # -----------------------------------------------------------------------------
 data = load_wine()
-X, y = data.data, data.target
+df = pd.DataFrame(data.data, columns=data.feature_names)
+df['target'] = data.target
+
+X = df.drop('target', axis=1).values
+y = df['target'].values
 
 # -----------------------------------------------------------------------------
 # 2. DEFINE PARAM GRID  ← swap values here to search different combos
