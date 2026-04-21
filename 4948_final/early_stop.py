@@ -3,6 +3,7 @@
 # =============================================================================
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from sklearn.datasets import load_wine
@@ -16,7 +17,11 @@ from skorch.callbacks import EarlyStopping, EpochScoring
 # 1. LOAD & SPLIT DATA
 # -----------------------------------------------------------------------------
 data = load_wine()
-X, y = data.data, data.target
+df = pd.DataFrame(data.data, columns=data.feature_names)
+df['target'] = data.target
+
+X = df.drop('target', axis=1).values
+y = df['target'].values
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
@@ -64,6 +69,7 @@ model = NeuralNetClassifier(
     module__num_classes=len(np.unique(y)),
     max_epochs=500,
     lr=0.01,
+    batch_size=256,
     optimizer=torch.optim.Adam,
     criterion=nn.CrossEntropyLoss,
     callbacks=callbacks,
