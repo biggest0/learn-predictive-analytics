@@ -18,8 +18,8 @@ plt.rcParams.update({'figure.figsize': (9, 7), 'figure.dpi': 120})
 # 1. LOAD DATA
 # -----------------------------------------------------------------------------
 df = pd.read_csv(
-    "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv",
-    header=0).squeeze()
+    "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv", header=0)
+df = df['x']
 
 # -----------------------------------------------------------------------------
 # 2. TRAIN / TEST SPLIT

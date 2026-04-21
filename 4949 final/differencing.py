@@ -15,7 +15,8 @@ plt.rcParams.update({'figure.figsize': (9, 7), 'figure.dpi': 120})
 # -----------------------------------------------------------------------------
 df = pd.read_csv(
     "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv",
-    header=0).squeeze()
+    names=['value'], header=0)
+df = df['value']
 
 df.plot()
 plt.title("Original Series")
@@ -77,8 +78,8 @@ plt.show()
 
 # Add this to Cheatsheet
 df = pd.read_csv(
-    "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv",
-    header=0).squeeze()
+    "https://raw.githubusercontent.com/selva86/datasets/master/wwwusage.csv", header=0)
+df = df['x']
 
 df.plot()
 plt.title("Original Series")
